@@ -47,8 +47,8 @@ cd annotate
 #------------------------------
 # getting transcriptomes
 
-# Buitrago-Lopez (2020)
-https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_036669915.1/
+# Buitrago-Lopez (2020) https://doi.org/10.1093/gbe/evaa184
+# cds and protein translations from genome at https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_036669915.1/
 
 # Renaming gene identifiers for ease
 sed -i 's/lcl|NC_/Pocillopora/' Pocillopora.fasta
@@ -128,30 +128,49 @@ awk '{
 
 
 #-------------------------
-# extracting coding sequences and corresponding protein translations:
-conda activate bioperl # if not active already
-echo "perl ~/bin/CDS_extractor_v2.pl Pocillopora_iso.fasta myblast.br allhits bridgegaps" >cds
-launcher_creator.py -j cds -n cds -l cddd -t 6:00:00 -q shortq7 -e studivanms@gmail.com
-sbatch cddd
+# modifying protein translation fasta headers
+
+# first creates a protein/gene lookup table
+grep ">" Pocillopora.fasta | awk -F'[][]' '{
+    for (i=1; i<=NF; i++) {
+        if ($i ~ /gene=/) { gsub("gene=", "", $i); gene=$i }
+        if ($i ~ /protein_id=/) { gsub("protein_id=", "", $i); protein=$i }
+    }
+    if (gene && protein) { print protein, gene }
+}' > Pocillopora_seq2pro.tab
+
+# now renames pro.fasta headers as gene ID
+awk 'BEGIN {
+    while (getline < "Pocillopora_seq2pro.tab") {
+        map[$1] = $2
+    }
+}
+/^>/ {
+    protein_id = substr($0, 2, index($0, " ") - 2)
+    if (protein_id in map) {
+        sub(protein_id, map[protein_id])
+    }
+}
+{ print }' protein.faa > Pocillopora_pro.fasta
 
 
 #------------------------------
 # GO annotation
 # updated based on Misha Matz's new GO and KOG annotation steps on github: https://github.com/z0on/emapper_to_GOMWU_KOGMWU
 
-# selecting the longest contig per isogroup (also renames using isogroups based on Pocillopora and Pocillopora annotations):
-fasta2SBH.pl Pocillopora_iso_PRO.fas >Pocillopora_out_PRO.fas
+# selecting the longest contig per isogroup
+fasta2SBH.pl Pocillopora_pro.fasta >Pocillopora_pro_out.fasta
 
 # scp your *_out_PRO.fas file to laptop, submit it to
 http://eggnog-mapper.embl.de
 cd /path/to/local/directory
-scp mstudiva@koko-login.hpc.fau.edu:~/path/to/HPC/directory/\*_out_PRO.fas .
+scp mstudiva@koko-login.hpc.fau.edu:~/path/to/HPC/directory/\*_pro_out.fasta .
 
 # copy link to job ID status and output file, paste it below instead of current link:
-# http://eggnog-mapper.embl.de/job_status?jobname=MM_wo5a5jlp
+# http://eggnog-mapper.embl.de/job_status?jobname=MM_nw1y1jd7
 
 # once it is done, download results to HPC:
-wget http://eggnog-mapper.embl.de/MM_wo5a5jlp/out.emapper.annotations
+wget http://eggnog-mapper.embl.de/MM_nw1y1jd7/out.emapper.annotations
 
 # GO:
 awk -F "\t" 'BEGIN {OFS="\t" }{print $1,$10 }' out.emapper.annotations | grep GO | perl -pe 's/,/;/g' >Pocillopora_iso2go.tab
