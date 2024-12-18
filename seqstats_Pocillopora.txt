@@ -1,0 +1,13 @@
+
+Pocillopora.fasta
+-------------------------
+37406 sequences.
+1859 average length.
+63966 maximum length.
+204 minimum length.
+N50 = 2481
+69.5 Mb altogether (69529273 bp).
+0 ambiguous Mb. (0 bp, 0%)
+0 Mb of Ns. (0 bp, 0%)
+-------------------------
+
